@@ -131,3 +131,22 @@ test('the panel renders no workspace picker', async () => {
   assert.ok(!source.includes('switcher.label'), 'the switcher locale keys are gone');
   assert.ok(!/<select|'select'/.test(source), 'no select element is rendered');
 });
+test('the panel reports a version that matches the package', async () => {
+  // Six behavioural fixes shipped while package.json still said 0.1.0, so an
+  // installed copy was indistinguishable from the latest one — which is exactly
+  // how a stale install survived a restart. The version must now be visible in the
+  // UI and agree with the manifest.
+  const { PANEL_VERSION } = await import('../lib/client.js');
+  const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+  assert.equal(PANEL_VERSION, manifest.version, 'PANEL_VERSION must track package.json');
+
+  const source = readFileSync(join(root, 'lib/client.js'), 'utf8');
+  assert.ok(source.includes('rt-version'), 'the version is rendered');
+  assert.ok(source.includes("'version'"), 'a version dictionary key exists');
+});
+
+test('both locales carry the version key', async () => {
+  const { en, zh } = await import('../lib/client.js');
+  assert.ok(en.version !== undefined, 'en is missing version');
+  assert.ok(zh.version !== undefined, 'zh is missing version');
+});

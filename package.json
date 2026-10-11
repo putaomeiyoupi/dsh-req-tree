@@ -1,6 +1,6 @@
 {
   "name": "dsh-req-tree",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "把 req-tree 需求派生树搬进 DeepSeek Harness：右侧栏一个只读 Tab，直接看到当前工作区的需求树状态、收口进度与告警。",
   "type": "module",
   "main": "lib/index.js",
