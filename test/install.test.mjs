@@ -17,7 +17,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { pickWorkspace } from '../lib/client.js';
+import { buildTreeQuery, pickWorkspace } from '../lib/client.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -67,48 +67,67 @@ test('the install check runs as part of verify', () => {
 
 // --- workspace selection -------------------------------------------------------
 
-const sidebarWith = (workspaceId, extra = {}) => ({ sidebar: { mounted: { getSnapshot: () => ({ workspaceId, ...extra }) } } });
+const sidebarWith = (mounted) => ({ sidebar: { mounted: { getSnapshot: () => mounted } } });
 
-test('an explicit user choice wins over the automatic pick', () => {
-  assert.equal(pickWorkspace({ tabInfo: sidebarWith('w1'), override: 'w2', fallback: 'w3' }), 'w2');
+test('the panel sends its session id, because a workspace is a directory', () => {
+  // `mounted` is the *Session* on screen (the sidebar docs are explicit), and the
+  // host owns the Session->cwd mapping. Reading `mounted.workspaceId` — which
+  // does not exist — silently yielded undefined and pinned the panel to the first
+  // registered workspace, so a workspace switch changed nothing on screen.
+  assert.deepEqual(pickWorkspace({ sessionId: 'sess-1', tabInfo: undefined, override: undefined }), { sessionId: 'sess-1' });
+  assert.deepEqual(pickWorkspace({ sessionId: undefined, tabInfo: sidebarWith('sess-2'), override: undefined }), { sessionId: 'sess-2' });
 });
 
-test('an explicit choice is not silently discarded as an empty string', () => {
-  assert.equal(pickWorkspace({ tabInfo: sidebarWith('w1'), override: '' , fallback: undefined }), 'w1');
+test('switching sessions changes the request on the next render', () => {
+  const first = buildTreeQuery(pickWorkspace({ sessionId: 'sess-a', override: undefined }));
+  const second = buildTreeQuery(pickWorkspace({ sessionId: 'sess-b', override: undefined }));
+  assert.equal(first, '?session=sess-a');
+  assert.equal(second, '?session=sess-b');
+  assert.notEqual(first, second, 'a session switch must change what the panel requests');
 });
 
-test('with no explicit choice, the tab\'s own workspace is used', () => {
-  assert.equal(pickWorkspace({ tabInfo: sidebarWith('w1'), override: undefined, fallback: 'w3' }), 'w1');
+test('a session snapshot given as an object is still read', () => {
+  assert.deepEqual(pickWorkspace({ sessionId: undefined, tabInfo: sidebarWith({ sessionId: 's3' }), override: undefined }), { sessionId: 's3' });
+  assert.deepEqual(pickWorkspace({ sessionId: undefined, tabInfo: sidebarWith({ id: 's4' }), override: undefined }), { sessionId: 's4' });
 });
 
-test('switching workspaces changes the pick on the next call', () => {
-  // The regression: the first answer was latched, so the panel never followed.
-  // Calling twice with different sidebar state must give different answers.
-  const first = pickWorkspace({ tabInfo: sidebarWith('w1'), override: undefined, fallback: undefined });
-  const second = pickWorkspace({ tabInfo: sidebarWith('w2'), override: undefined, fallback: undefined });
-  assert.equal(first, 'w1');
-  assert.equal(second, 'w2');
-  assert.notEqual(first, second, 'a workspace switch must change the selection');
+test('an explicit workspace pick no longer exists', () => {
+  // The picker was removed: the tab shows its own session's tree, and nothing in
+  // the panel can point it at a different project than the sidebar is showing.
+  assert.deepEqual(pickWorkspace({ sessionId: 'sess-1', override: 'w9' }), { sessionId: 'sess-1' });
 });
 
-test('a sidebar that reports a cwd is honoured', () => {
-  assert.equal(
-    pickWorkspace({ tabInfo: sidebarWith(undefined, { cwd: 'C:/proj/a' }), override: undefined, fallback: undefined }),
-    'C:/proj/a',
-  );
+test('nothing identifiable sends no selector instead of a guess', () => {
+  // The host then answers with its first registered workspace, which is right for
+  // a single-project host; a plausible-but-wrong directory would show another
+  // project's tree with no indication anything is off.
+  assert.deepEqual(pickWorkspace({ sessionId: undefined, tabInfo: undefined }), {});
+  assert.equal(buildTreeQuery({}), '');
+  assert.equal(buildTreeQuery(undefined), '');
 });
 
-test('the single-workspace fallback keeps the panel usable without a sidebar', () => {
-  assert.equal(pickWorkspace({ tabInfo: undefined, override: undefined, fallback: 'only' }), 'only');
+test('empty identifiers are not treated as selections', () => {
+  assert.deepEqual(pickWorkspace({ sessionId: '', tabInfo: sidebarWith('') }), {});
+  assert.equal(buildTreeQuery({ sessionId: '' }), '');
 });
 
-test('nothing identifiable yields undefined rather than a guess', () => {
-  // Returning a wrong-but-plausible id would show the wrong project's tree with
-  // no indication anything is off.
-  assert.equal(pickWorkspace({ tabInfo: undefined, override: undefined, fallback: undefined }), undefined);
-  assert.equal(pickWorkspace({}), undefined);
+test('the host still accepts an explicit workspace id for hand debugging', () => {
+  // Kept deliberately: the route supports it even though no UI emits it.
+  assert.equal(buildTreeQuery({ workspaceId: 'w9' }), '?workspace=w9');
 });
 
-test('an empty workspaceId is not treated as a selection', () => {
-  assert.equal(pickWorkspace({ tabInfo: sidebarWith(''), override: undefined, fallback: 'w9' }), 'w9');
+test('identifiers are URL-encoded rather than pasted raw', () => {
+  assert.equal(buildTreeQuery({ sessionId: 'a b/c?d' }), '?session=a+b%2Fc%3Fd');
+  assert.equal(buildTreeQuery({ workspaceId: 'w&x=1' }), '?workspace=w%26x%3D1');
+});
+
+test('the panel renders no workspace picker', async () => {
+  // The switcher was a second, conflicting way to say what the sidebar already
+  // decides. Its removal is a product decision, so it is asserted like behaviour.
+  const { readFileSync } = await import('node:fs');
+  const source = readFileSync(join(root, 'lib/client.js'), 'utf8');
+  assert.ok(!source.includes('useWorkspaces'), 'the workspace-list hook is gone');
+  assert.ok(!source.includes('WORKSPACES_PATH'), 'the workspaces route constant is gone');
+  assert.ok(!source.includes('switcher.label'), 'the switcher locale keys are gone');
+  assert.ok(!/<select|'select'/.test(source), 'no select element is rendered');
 });
