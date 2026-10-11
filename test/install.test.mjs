@@ -150,3 +150,31 @@ test('both locales carry the version key', async () => {
   assert.ok(en.version !== undefined, 'en is missing version');
   assert.ok(zh.version !== undefined, 'zh is missing version');
 });
+test('the panel route actually registers when both services exist', async () => {
+  // The `inject: { required: [] }` regression: the fiber activated immediately,
+  // before webServer existed, so apply() ran once, found no webServer, and the
+  // route was never registered — every request then 404'd while the browser half
+  // rendered fine. A host-side test with the services present is the only place
+  // this is observable.
+  const { apply, Config } = await import('../lib/index.js');
+  const routes = new Map();
+  const server = { register: (route) => { routes.set(route.path, route); return () => { routes.delete(route.path); }; } };
+  const registry = { list: () => [{ id: 'w1', title: 'demo', path: '/tmp/demo', sessionIds: [] }] };
+  const ctx = {
+    effect: (fn) => { fn(); return () => {}; },
+    get: (key) => ({ webServer: server, workspaceRegistry: registry, connection: { requestRejection: () => undefined } })[key],
+    on: () => {},
+    logger: { warn: () => {} },
+  };
+  apply(ctx, Config({}));
+  assert.ok(routes.has('/plugins/dsh-req-tree/tree'), `route not registered; got ${[...routes.keys()].join(', ')}`);
+});
+
+test('required inject names the services the route is built from', async () => {
+  // Guards the specific mistake: `required: []` silently disabled registration.
+  const host = await import('../lib/index.js');
+  assert.ok(Array.isArray(host.inject), 'inject should be a plain service list');
+  for (const service of ['webServer', 'workspaceRegistry']) {
+    assert.ok(host.inject.includes(service), `inject must require ${service} (required:[] skips registration entirely)`);
+  }
+});
