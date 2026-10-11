@@ -45,6 +45,16 @@ dsh plugin --profile <your-profile> add github:putaomeiyoupi/dsh-req-tree#v0.2.1
 > 若安装报 `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`，那是你 profile 里**另一个包**
 > 刚发布过 rc 版本、尚未过 DSH 的 24 小时供应链冷却期，与本插件无关 —— 等冷却期过去即可。
 
+### 确认装的是哪一版
+
+面板头部会显示版本号（如「面板 0.2.2」）。**它必须与 `package.json` 的 `version` 一致**
+—— 测试里有这条断言，因为版本号曾经横跨多个修复停在 `0.1.0`，导致装在 profile 里的旧副本
+和最新代码看起来一模一样。
+
+```bash
+npm view dsh-req-tree version   # registry 上的最新版
+```
+
 ### 前提
 
 面板需要一个已经存在的真源。先用 CLI 建一个：
