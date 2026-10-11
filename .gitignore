@@ -1,0 +1,15 @@
+# 构建产物：由 scripts/build-client.mjs 从 lib/client.js 生成
+# （npm 发布时由 prepublishOnly 现场构建，不入库）
+lib/client.bundle.js
+
+# 依赖
+node_modules/
+
+# pnpm 打包产物
+*.tgz
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
