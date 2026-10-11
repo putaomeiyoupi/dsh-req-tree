@@ -1,7 +1,3 @@
-# 构建产物：由 scripts/build-client.mjs 从 lib/client.js 生成
-# （npm 发布时由 prepublishOnly 现场构建，不入库）
-lib/client.bundle.js
-
 # 依赖
 node_modules/
 
@@ -13,3 +9,18 @@ node_modules/
 .idea/
 .DS_Store
 Thumbs.db
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 注意：lib/client.bundle.js **必须入库**，不要再 gitignore 它。
+#
+# 它由 scripts/build-client.mjs 从 lib/client.js 生成，看着像构建产物 —— 但它同时是
+# package.json 里 exports["./client"] 指向的文件，也就是 DSH 加载浏览器半边的入口。
+#
+# `npm publish` 时有 prepublishOnly 兜底（会先 build），所以 npm 渠道不会缺；
+# 但 `dsh plugin add github:user/repo` 走的是 pnpm 拉 git 仓库，**不跑 npm 脚本**，
+# 于是 bundle 缺失 → 客户端半边加载失败 → 宿主启动时报 "failed to import"。
+# （2026-10-11 实测踩到：DSH desktop 因缺该文件启动失败一次。）
+#
+# 所以规则反过来：**凡是运行时必需的产物就入库**，由 CI/verify 保证它与 client.js 同步。
+# lib/client.js 仍然入库（可读源码），bundle 是它的运行时编译结果，两者都要有。
+# ─────────────────────────────────────────────────────────────────────────────

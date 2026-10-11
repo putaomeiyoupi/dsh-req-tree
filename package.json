@@ -70,7 +70,8 @@
   "scripts": {
     "build": "node scripts/build-client.mjs",
     "test": "node --test test/*.test.mjs",
-    "verify": "npm run build && npm test",
+    "check-install": "node scripts/check-install.mjs",
+    "verify": "npm run build && npm test && npm run check-install",
     "prepublishOnly": "npm run verify"
   },
   "repository": {
