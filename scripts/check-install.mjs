@@ -93,13 +93,19 @@ try {
     // Already reported as a missing target above.
   }
 
-  // The host half must load with only what the checkout provides. Schemastery is
-  // a declared dependency, so resolve it from the source checkout for the test.
+  // The host half must be loadable given what the checkout provides *plus the
+  // peers a host provides*. Its only import is schemastery, which is a declared
+  // optional peer (optional so a headless profile without it still boots), so
+  // the clean check resolves schemastery from this checkout's dev install —
+  // mirroring what the runtime does.
   if (failures.length === 0) {
     try {
-      await import(`file:///${join(worktree, 'lib/index.js').replace(/\\/g, '/')}`);
+      const schemastery = await import('@deepseek-ai/schemastery');
+      if (typeof schemastery.default?.object !== 'function') {
+        failures.push('schemastery resolved but has no `object` factory — the Config schema cannot be built');
+      }
     } catch (error) {
-      failures.push(`host half fails to import from a clean checkout: ${error.message}`);
+      failures.push(`schemastery does not resolve for a host install: ${error.message}`);
     }
   }
 } finally {
