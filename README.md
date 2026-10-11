@@ -28,19 +28,19 @@ req-tree 的第一条铁律是**所有写入只走 CLI**：手改真源会制造
 ## 安装
 
 ```bash
-# 从 GitHub 装（推荐，不需要 npm 账号）
-dsh plugin --profile <你的 profile> add github:putaomeiyoupi/dsh-req-tree
-
-# 或指定版本
-dsh plugin --profile <你的 profile> add github:putaomeiyoupi/dsh-req-tree#v0.1.0
+dsh plugin --profile <你的 profile> add dsh-req-tree
 ```
-
-`dsh plugin add` 透传 pnpm，所以 npm 之外的源都能用：git 仓库、tarball url、本地目录。
-npm 包名 `dsh-req-tree` 已预留但**截至 v0.1.0 尚未发布**，上架后可用最简写法
-`add dsh-req-tree`。
 
 装完在右侧栏点开 **需求树** Tab（或从引导页的入口进）。右侧栏是按会话停靠的，所以这个 Tab
 会跟着当前会话走。
+
+`dsh plugin add` 透传 pnpm，所以不依赖 npm 的源同样能用：
+
+```bash
+# 直接从 GitHub（可指定版本/分支/tag）
+dsh plugin --profile <你的 profile> add github:putaomeiyoupi/dsh-req-tree
+dsh plugin --profile <your-profile> add github:putaomeiyoupi/dsh-req-tree#v0.2.1
+```
 
 > 若安装报 `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`，那是你 profile 里**另一个包**
 > 刚发布过 rc 版本、尚未过 DSH 的 24 小时供应链冷却期，与本插件无关 —— 等冷却期过去即可。
